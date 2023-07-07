@@ -61,14 +61,15 @@ const modelSchema = new mongoose.Schema({
   name: String,
   avatar: String,
   status: String,
+  intro: String,
   chat: {
     relatedKbs: [mongoose.Schema.Types.ObjectId],
-    searchMode: String,
     systemPrompt: String,
     temperature: Number,
     chatModel: String
   },
   share: {
+    topNum: Number,
     isShare: Boolean,
     isShareDetail: Boolean,
     intro: String,
@@ -85,18 +86,6 @@ const modelSchema = new mongoose.Schema({
 });
 
 const SystemSchema = new mongoose.Schema({
-  openAIKeys: {
-    type: String,
-    default: ''
-  },
-  openAITrainingKeys: {
-    type: String,
-    default: ''
-  },
-  gpt4Key: {
-    type: String,
-    default: ''
-  },
   vectorMaxProcess: {
     type: Number,
     default: 10

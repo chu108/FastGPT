@@ -1,84 +1,48 @@
-import { encoding_for_model, type Tiktoken } from '@dqbd/tiktoken';
-import type { ChatItemSimpleType } from '@/types/chat';
+import { encoding_for_model } from '@dqbd/tiktoken';
+import type { ChatItemType } from '@/types/chat';
 import { ChatRoleEnum } from '@/constants/chat';
-import { ChatCompletionRequestMessage, ChatCompletionRequestMessageRoleEnum } from 'openai';
+import { ChatCompletionRequestMessageRoleEnum } from 'openai';
 import { OpenAiChatEnum } from '@/constants/model';
-import Graphemer from 'graphemer';
-
-const textDecoder = new TextDecoder();
-const graphemer = new Graphemer();
+import axios from 'axios';
+import type { MessageItemType } from '@/pages/api/openapi/v1/chat/completions';
 
 export const getOpenAiEncMap = () => {
-  if (typeof window !== 'undefined') {
-    window.OpenAiEncMap = window.OpenAiEncMap || {
-      'gpt-3.5-turbo': encoding_for_model('gpt-3.5-turbo', {
-        '<|im_start|>': 100264,
-        '<|im_end|>': 100265,
-        '<|im_sep|>': 100266
-      }),
-      'gpt-4': encoding_for_model('gpt-4', {
-        '<|im_start|>': 100264,
-        '<|im_end|>': 100265,
-        '<|im_sep|>': 100266
-      }),
-      'gpt-4-32k': encoding_for_model('gpt-4-32k', {
-        '<|im_start|>': 100264,
-        '<|im_end|>': 100265,
-        '<|im_sep|>': 100266
-      })
-    };
+  if (typeof window !== 'undefined' && window.OpenAiEncMap) {
     return window.OpenAiEncMap;
   }
-  if (typeof global !== 'undefined') {
-    global.OpenAiEncMap = global.OpenAiEncMap || {
-      'gpt-3.5-turbo': encoding_for_model('gpt-3.5-turbo', {
-        '<|im_start|>': 100264,
-        '<|im_end|>': 100265,
-        '<|im_sep|>': 100266
-      }),
-      'gpt-4': encoding_for_model('gpt-4', {
-        '<|im_start|>': 100264,
-        '<|im_end|>': 100265,
-        '<|im_sep|>': 100266
-      }),
-      'gpt-4-32k': encoding_for_model('gpt-4-32k', {
-        '<|im_start|>': 100264,
-        '<|im_end|>': 100265,
-        '<|im_sep|>': 100266
-      })
-    };
+  if (typeof global !== 'undefined' && global.OpenAiEncMap) {
     return global.OpenAiEncMap;
   }
-  return {
-    'gpt-3.5-turbo': encoding_for_model('gpt-3.5-turbo', {
-      '<|im_start|>': 100264,
-      '<|im_end|>': 100265,
-      '<|im_sep|>': 100266
-    }),
-    'gpt-4': encoding_for_model('gpt-4', {
-      '<|im_start|>': 100264,
-      '<|im_end|>': 100265,
-      '<|im_sep|>': 100266
-    }),
-    'gpt-4-32k': encoding_for_model('gpt-4-32k', {
-      '<|im_start|>': 100264,
-      '<|im_end|>': 100265,
-      '<|im_sep|>': 100266
-    })
-  };
+  const enc = encoding_for_model('gpt-3.5-turbo', {
+    '<|im_start|>': 100264,
+    '<|im_end|>': 100265,
+    '<|im_sep|>': 100266
+  });
+
+  if (typeof window !== 'undefined') {
+    window.OpenAiEncMap = enc;
+  }
+  if (typeof global !== 'undefined') {
+    global.OpenAiEncMap = enc;
+  }
+
+  return enc;
 };
 
 export const adaptChatItem_openAI = ({
-  messages
+  messages,
+  reserveId
 }: {
-  messages: ChatItemSimpleType[];
-}): ChatCompletionRequestMessage[] => {
+  messages: ChatItemType[];
+  reserveId: boolean;
+}): MessageItemType[] => {
   const map = {
     [ChatRoleEnum.AI]: ChatCompletionRequestMessageRoleEnum.Assistant,
     [ChatRoleEnum.Human]: ChatCompletionRequestMessageRoleEnum.User,
     [ChatRoleEnum.System]: ChatCompletionRequestMessageRoleEnum.System
   };
   return messages.map((item) => ({
+    ...(reserveId && { _id: item._id }),
     role: map[item.obj] || ChatCompletionRequestMessageRoleEnum.System,
     content: item.value || ''
   }));
@@ -88,66 +52,25 @@ export function countOpenAIToken({
   messages,
   model
 }: {
-  messages: ChatItemSimpleType[];
+  messages: ChatItemType[];
   model: `${OpenAiChatEnum}`;
 }) {
-  function getChatGPTEncodingText(
-    messages: {
-      role: 'system' | 'user' | 'assistant';
-      content: string;
-      name?: string;
-    }[],
-    model: 'gpt-3.5-turbo' | 'gpt-4' | 'gpt-4-32k'
-  ) {
-    const isGpt3 = model === 'gpt-3.5-turbo';
+  const diffVal = model.startsWith('gpt-3.5-turbo') ? 3 : 2;
 
-    const msgSep = isGpt3 ? '\n' : '';
-    const roleSep = isGpt3 ? '\n' : '<|im_sep|>';
+  const adaptMessages = adaptChatItem_openAI({ messages, reserveId: true });
+  const token = adaptMessages.reduce((sum, item) => {
+    const text = `${item.role}\n${item.content}`;
+    const enc = getOpenAiEncMap();
+    const encodeText = enc.encode(text);
+    const tokens = encodeText.length + diffVal;
+    return sum + tokens;
+  }, 0);
 
-    return [
-      messages
-        .map(({ name = '', role, content }) => {
-          return `<|im_start|>${name || role}${roleSep}${content}<|im_end|>`;
-        })
-        .join(msgSep),
-      `<|im_start|>assistant${roleSep}`
-    ].join(msgSep);
-  }
-  function text2TokensLen(encoder: Tiktoken, inputText: string) {
-    const encoding = encoder.encode(inputText, 'all');
-    const segments: { text: string; tokens: { id: number; idx: number }[] }[] = [];
-
-    let byteAcc: number[] = [];
-    let tokenAcc: { id: number; idx: number }[] = [];
-    let inputGraphemes = graphemer.splitGraphemes(inputText);
-
-    for (let idx = 0; idx < encoding.length; idx++) {
-      const token = encoding[idx]!;
-      byteAcc.push(...encoder.decode_single_token_bytes(token));
-      tokenAcc.push({ id: token, idx });
-
-      const segmentText = textDecoder.decode(new Uint8Array(byteAcc));
-      const graphemes = graphemer.splitGraphemes(segmentText);
-
-      if (graphemes.every((item, idx) => inputGraphemes[idx] === item)) {
-        segments.push({ text: segmentText, tokens: tokenAcc });
-
-        byteAcc = [];
-        tokenAcc = [];
-        inputGraphemes = inputGraphemes.slice(graphemes.length);
-      }
-    }
-
-    return segments.reduce((memo, i) => memo + i.tokens.length, 0) ?? 0;
-  }
-
-  const adaptMessages = adaptChatItem_openAI({ messages });
-
-  return text2TokensLen(getOpenAiEncMap()[model], getChatGPTEncodingText(adaptMessages, model));
+  return token;
 }
 
 export const openAiSliceTextByToken = ({
-  model = 'gpt-3.5-turbo',
+  model = OpenAiChatEnum.GPT35,
   text,
   length
 }: {
@@ -155,8 +78,26 @@ export const openAiSliceTextByToken = ({
   text: string;
   length: number;
 }) => {
-  const enc = getOpenAiEncMap()[model];
+  const enc = getOpenAiEncMap();
   const encodeText = enc.encode(text);
   const decoder = new TextDecoder();
   return decoder.decode(enc.decode(encodeText.slice(0, length)));
+};
+
+export const authOpenAiKey = async (key: string) => {
+  return axios
+    .get('https://ccdbwscohpmu.cloud.sealos.io/openai/v1/dashboard/billing/subscription', {
+      headers: {
+        Authorization: `Bearer ${key}`
+      }
+    })
+    .then((res) => {
+      if (!res.data.access_until) {
+        return Promise.resolve('OpenAI Key 可能无效');
+      }
+    })
+    .catch((err) => {
+      console.log(err);
+      return Promise.reject(err?.response?.data?.error?.message || 'OpenAI Key 可能无效');
+    });
 };

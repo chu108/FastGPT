@@ -140,8 +140,10 @@ const Home = () => {
 
   useEffect(() => {
     (async () => {
-      const { data: git } = await axios.get('https://api.github.com/repos/c121914yu/FastGPT');
-      setStar(git.stargazers_count);
+      try {
+        const { data: git } = await axios.get('https://api.github.com/repos/c121914yu/FastGPT');
+        setStar(git.stargazers_count);
+      } catch (error) {}
     })();
   }, []);
 
@@ -163,7 +165,7 @@ const Home = () => {
         position={'absolute'}
         userSelect={'none'}
       >
-        <Image src="/icon/logo.png" w={['70px', '120px']} h={['70px', '120px']} alt={''}></Image>
+        <Image src="/icon/logo2.png" w={['70px', '120px']} h={['70px', '120px']} alt={''}></Image>
         <Box
           className={styles.textlg}
           fontWeight={'bold'}

@@ -2,6 +2,8 @@ import mammoth from 'mammoth';
 import Papa from 'papaparse';
 import { getOpenAiEncMap } from './plugin/openai';
 import { getErrText } from './tools';
+import { OpenAiChatEnum } from '@/constants/model';
+import { uploadImg } from '@/api/system';
 
 /**
  * 读取 txt 文件内容
@@ -146,17 +148,11 @@ export const fileDownload = ({
  * slideLen - The size of the before and after Text
  * maxLen > slideLen
  */
-export const splitText_token = ({
-  text,
-  maxLen,
-  slideLen
-}: {
-  text: string;
-  maxLen: number;
-  slideLen: number;
-}) => {
+export const splitText_token = ({ text, maxLen }: { text: string; maxLen: number }) => {
+  const slideLen = Math.floor(maxLen * 0.3);
+
   try {
-    const enc = getOpenAiEncMap()['gpt-3.5-turbo'];
+    const enc = getOpenAiEncMap();
     // filter empty text. encode sentence
     const encodeText = enc.encode(text);
 
@@ -217,11 +213,11 @@ export const compressImg = ({
   new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    reader.onload = () => {
+    reader.onload = async () => {
       const img = new Image();
       // @ts-ignore
       img.src = reader.result;
-      img.onload = () => {
+      img.onload = async () => {
         let width = img.width;
         let height = img.height;
 
@@ -247,14 +243,24 @@ export const compressImg = ({
         }
 
         ctx.drawImage(img, 0, 0, width, height);
-        const compressedDataUrl = canvas.toDataURL(file.type, 1);
+        const compressedDataUrl = canvas.toDataURL(file.type, 0.8);
         // 移除 canvas 元素
         canvas.remove();
 
         if (compressedDataUrl.length > maxSize) {
           return reject('图片太大了');
         }
-        resolve(compressedDataUrl);
+
+        const src = await (async () => {
+          try {
+            const src = await uploadImg(compressedDataUrl);
+            return src;
+          } catch (error) {
+            return compressedDataUrl;
+          }
+        })();
+
+        resolve(src);
       };
     };
     reader.onerror = (err) => {

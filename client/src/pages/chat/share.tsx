@@ -56,11 +56,13 @@ const ShareHistory = dynamic(() => import('./components/ShareHistory'), {
 });
 
 import styles from './index.module.scss';
+import { adaptChatItem_openAI } from '@/utils/plugin/openai';
 
 const textareaMinH = '22px';
 
-const Chat = ({ shareId, historyId }: { shareId: string; historyId: string }) => {
+const Chat = () => {
   const router = useRouter();
+  const { shareId = '', historyId } = router.query as { shareId: string; historyId: string };
   const theme = useTheme();
 
   const ChatBox = useRef<HTMLDivElement>(null);
@@ -170,19 +172,15 @@ const Chat = ({ shareId, historyId }: { shareId: string; historyId: string }) =>
       controller.current = abortSignal;
       isLeavePage.current = false;
 
-      const formatPrompts = prompts.map((item) => ({
-        obj: item.obj,
-        value: item.value
-      }));
+      const messages = adaptChatItem_openAI({ messages: prompts, reserveId: true });
 
       // 流请求，获取数据
       const { responseText } = await streamFetch({
-        url: '/api/chat/shareChat/chat',
         data: {
-          prompts: formatPrompts.slice(-shareChatData.maxContext - 1, -1),
+          messages: messages.slice(-shareChatData.maxContext - 1, -1),
           password,
           shareId,
-          historyId
+          model: ''
         },
         onMessage: (text: string) => {
           setShareChatData((state) => ({
@@ -226,7 +224,7 @@ const Chat = ({ shareId, historyId }: { shareId: string; historyId: string }) =>
       setShareChatHistory({
         historyId,
         shareId,
-        title: formatPrompts[formatPrompts.length - 2].value,
+        title: prompts[prompts.length - 2].value,
         latestChat: responseText,
         chats: responseHistory
       });
@@ -235,7 +233,8 @@ const Chat = ({ shareId, historyId }: { shareId: string; historyId: string }) =>
         {
           type: 'shareChatFinish',
           data: {
-            responseText
+            question: prompts[prompts.length - 2].value,
+            answer: responseText
           }
         },
         '*'
@@ -492,14 +491,13 @@ const Chat = ({ shareId, historyId }: { shareId: string; historyId: string }) =>
   ]);
 
   // 初始化聊天框
-  useQuery(['init', historyId], () => {
+  useQuery(['init', shareId, historyId], () => {
     if (!shareId) {
       return null;
     }
 
     if (!historyId) {
-      router.replace(`/chat/share?shareId=${shareId}&historyId=${new Types.ObjectId()}`);
-      return null;
+      return router.replace(`/chat/share?shareId=${shareId}&historyId=${new Types.ObjectId()}`);
     }
 
     return loadChatInfo();
@@ -661,7 +659,6 @@ const Chat = ({ shareId, historyId }: { shareId: string; historyId: string }) =>
                         <Markdown
                           source={item.value}
                           isChatting={isChatting && index === shareChatData.history.length - 1}
-                          formatLink
                         />
                       </Card>
                     </Box>
@@ -838,13 +835,6 @@ const Chat = ({ shareId, historyId }: { shareId: string; historyId: string }) =>
       }
     </Flex>
   );
-};
-
-Chat.getInitialProps = ({ query, req }: any) => {
-  return {
-    shareId: query?.shareId || '',
-    historyId: query?.historyId || ''
-  };
 };
 
 export default Chat;

@@ -1,58 +1,54 @@
-import React, { memo, useMemo, useEffect } from 'react';
+import React from 'react';
 import ReactMarkdown from 'react-markdown';
-import { formatLinkText } from '@/utils/tools';
-import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
-import remarkBreaks from 'remark-breaks';
-import rehypeKatex from 'rehype-katex';
+import RemarkGfm from 'remark-gfm';
+import RemarkMath from 'remark-math';
+import RehypeKatex from 'rehype-katex';
+import RemarkBreaks from 'remark-breaks';
 
 import 'katex/dist/katex.min.css';
 import styles from './index.module.scss';
-import CodeLight from './codeLight';
-import Loading from './Loading';
-import MermaidCodeBlock from './MermaidCodeBlock';
 
-const Markdown = ({
-  source,
-  isChatting = false,
-  formatLink
-}: {
-  source: string;
-  formatLink?: boolean;
-  isChatting?: boolean;
-}) => {
-  const formatSource = useMemo(() => {
-    return formatLink ? formatLinkText(source) : source;
-  }, [source, formatLink]);
+import Link from './Link';
+import CodeLight from './CodeLight';
+import MermaidCodeBlock from './img/MermaidCodeBlock';
+import MdImage from './img/Image';
 
+function Code({ inline, className, children }: any) {
+  const match = /language-(\w+)/.exec(className || '');
+
+  if (match?.[1] === 'mermaid') {
+    return <MermaidCodeBlock code={String(children)} />;
+  }
+
+  return (
+    <CodeLight className={className} inline={inline} match={match}>
+      {children}
+    </CodeLight>
+  );
+}
+
+function Image({ src }: { src?: string }) {
+  return <MdImage src={src} />;
+}
+
+const Markdown = ({ source, isChatting = false }: { source: string; isChatting?: boolean }) => {
   return (
     <ReactMarkdown
       className={`markdown ${styles.markdown}
-        ${isChatting ? (source === '' ? styles.waitingAnimation : styles.animation) : ''}
-      `}
-      remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
-      rehypePlugins={[rehypeKatex]}
+      ${isChatting ? (source === '' ? styles.waitingAnimation : styles.animation) : ''}
+    `}
+      remarkPlugins={[RemarkGfm, RemarkMath, RemarkBreaks]}
+      rehypePlugins={[RehypeKatex]}
       components={{
+        a: Link,
+        img: Image,
         pre: 'div',
-        code({ node, inline, className, children, ...props }) {
-          const match = /language-(\w+)/.exec(className || '');
-
-          if (match?.[1] === 'mermaid') {
-            return isChatting ? <Loading /> : <MermaidCodeBlock code={String(children)} />;
-          }
-
-          return (
-            <CodeLight className={className} inline={inline} match={match} {...props}>
-              {children}
-            </CodeLight>
-          );
-        }
+        code: Code
       }}
-      linkTarget="_blank"
     >
-      {formatSource}
+      {source}
     </ReactMarkdown>
   );
 };
 
-export default memo(Markdown);
+export default Markdown;

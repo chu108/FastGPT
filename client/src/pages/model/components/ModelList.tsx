@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Box, Flex, Input, IconButton, Tooltip, Tab, useTheme } from '@chakra-ui/react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Box, Flex, Input, IconButton, Tooltip, useTheme } from '@chakra-ui/react';
 import { AddIcon } from '@chakra-ui/icons';
 import { useRouter } from 'next/router';
 import MyIcon from '@/components/Icon';
@@ -9,9 +9,14 @@ import { useToast } from '@/hooks/useToast';
 import { useQuery } from '@tanstack/react-query';
 import { useUserStore } from '@/store/user';
 import { MyModelsTypeEnum } from '@/constants/user';
+import dynamic from 'next/dynamic';
 
-import Avatar from '@/components/Avatar';
-import Tabs from '@/components/Tabs';
+const Avatar = dynamic(() => import('@/components/Avatar'), {
+  ssr: false
+});
+const Tabs = dynamic(() => import('@/components/Tabs'), {
+  ssr: false
+});
 
 const ModelList = ({ modelId }: { modelId: string }) => {
   const [currentTab, setCurrentTab] = useState(MyModelsTypeEnum.my);
@@ -50,14 +55,12 @@ const ModelList = ({ modelId }: { modelId: string }) => {
   const currentModels = useMemo(() => {
     const map = {
       [MyModelsTypeEnum.my]: {
-        list: myModels.filter((item) =>
-          new RegExp(searchText, 'ig').test(item.name + item.systemPrompt)
-        ),
+        list: myModels.filter((item) => new RegExp(searchText, 'ig').test(item.name + item.intro)),
         emptyText: '还没有 AI 应用~\n快来创建一个吧'
       },
       [MyModelsTypeEnum.collection]: {
         list: myCollectionModels.filter((item) =>
-          new RegExp(searchText, 'ig').test(item.name + item.systemPrompt)
+          new RegExp(searchText, 'ig').test(item.name + item.intro)
         ),
         emptyText: '收藏的 AI 应用为空~\n快去市场找一个吧'
       }
@@ -78,7 +81,7 @@ const ModelList = ({ modelId }: { modelId: string }) => {
         <Flex flex={1} mr={2} position={'relative'} alignItems={'center'}>
           <Input
             h={'32px'}
-            placeholder="搜索 AI 应用"
+            placeholder="根据名字和介绍搜索 AI 应用"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
           />
@@ -106,7 +109,7 @@ const ModelList = ({ modelId }: { modelId: string }) => {
           />
         </Tooltip>
       </Flex>
-      <Flex mb={3} userSelect={'none'}>
+      <Flex userSelect={'none'}>
         <Box flex={1}></Box>
         <Tabs
           w={'130px'}
@@ -124,7 +127,7 @@ const ModelList = ({ modelId }: { modelId: string }) => {
           <Flex
             key={item._id}
             position={'relative'}
-            alignItems={['flex-start', 'center']}
+            alignItems={'center'}
             p={3}
             mb={[2, 0]}
             cursor={'pointer'}
@@ -148,9 +151,6 @@ const ModelList = ({ modelId }: { modelId: string }) => {
             <Box flex={'1 0 0'} w={0} ml={3}>
               <Box className="textEllipsis" color={'myGray.1000'}>
                 {item.name}
-              </Box>
-              <Box className="textEllipsis" color={'myGray.400'} fontSize={'sm'}>
-                {item.systemPrompt || '这个 应用 没有设置提示词~'}
               </Box>
             </Box>
           </Flex>

@@ -23,34 +23,10 @@ export async function generateQA(): Promise<any> {
   let userId = '';
 
   try {
-    const match = {
-      mode: TrainingModeEnum.qa,
-      lockTime: { $lte: new Date(Date.now() - 4 * 60 * 1000) }
-    };
-    // random get task
-    const agree = await TrainingData.aggregate([
-      {
-        $match: match
-      },
-      { $sample: { size: 1 } },
-      {
-        $project: {
-          _id: 1
-        }
-      }
-    ]);
-
-    // no task
-    if (agree.length === 0) {
-      reduceQueue();
-      global.qaQueueLen <= 0 && console.log(`没有需要【QA】的数据, ${global.qaQueueLen}`);
-      return;
-    }
-
     const data = await TrainingData.findOneAndUpdate(
       {
-        _id: agree[0]._id,
-        ...match
+        mode: TrainingModeEnum.qa,
+        lockTime: { $lte: new Date(Date.now() - 4 * 60 * 1000) }
       },
       {
         lockTime: new Date()
@@ -67,7 +43,8 @@ export async function generateQA(): Promise<any> {
     // task preemption
     if (!data) {
       reduceQueue();
-      return generateQA();
+      global.qaQueueLen <= 0 && console.log(`没有需要【QA】的数据, ${global.qaQueueLen}`);
+      return;
     }
 
     trainingId = data._id;
@@ -78,7 +55,6 @@ export async function generateQA(): Promise<any> {
     const { systemAuthKey } = await getApiKey({
       model: OpenAiChatEnum.GPT35,
       userId,
-      type: 'training',
       mustPay: true
     });
 
@@ -87,16 +63,17 @@ export async function generateQA(): Promise<any> {
     // 请求 chatgpt 获取回答
     const response = await Promise.all(
       [data.q].map((text) =>
-        modelServiceToolMap[OpenAiChatEnum.GPT35]
+        modelServiceToolMap
           .chatCompletion({
+            model: OpenAiChatEnum.GPT3516k,
             apiKey: systemAuthKey,
             temperature: 0.8,
             messages: [
               {
                 obj: ChatRoleEnum.System,
-                value: `你是出题人
-${data.prompt || '下面是"一段长文本"'}
-从中选出5至20个题目和答案.答案详细.按格式返回: Q1:
+                value: `你是出题人.
+${data.prompt || '用户会发送一段长文本'}.
+从中选出 25 个问题和答案. 答案详细完整. 按格式回答: Q1:
 A1:
 Q2:
 A2:
@@ -177,7 +154,8 @@ A2:
       sendInform({
         type: 'system',
         title: 'QA 任务中止',
-        content: '由于账号余额不足，QA 任务中止，重新充值后将会继续。',
+        content:
+          '由于账号余额不足，索引生成任务中止，重新充值后将会继续。暂停的任务将在 7 天后被删除。',
         userId
       });
       console.log('余额不足，暂停向量生成任务');

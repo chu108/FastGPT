@@ -8,6 +8,7 @@ import { TrainingModeEnum } from '@/constants/plugin';
 import { startQueue } from '@/service/utils/tools';
 import { PgClient } from '@/service/pg';
 import { modelToolMap } from '@/utils/plugin';
+import { OpenAiChatEnum } from '@/constants/model';
 
 type DateItemType = { a: string; q: string; source?: string };
 
@@ -23,8 +24,8 @@ export type Response = {
 };
 
 const modeMaxToken = {
-  [TrainingModeEnum.index]: 700,
-  [TrainingModeEnum.qa]: 3300
+  [TrainingModeEnum.index]: 6000,
+  [TrainingModeEnum.qa]: 10000
 };
 
 export default withNextCors(async function handler(req: NextApiRequest, res: NextApiResponse<any>) {
@@ -75,14 +76,18 @@ export async function pushDataToKb({
   data.forEach((item) => {
     const text = item.q + item.a;
 
-    // count token
-    const token = modelToolMap['gpt-3.5-turbo'].countTokens({
-      messages: [{ obj: 'System', value: item.q }]
-    });
+    if (mode === TrainingModeEnum.qa) {
+      // count token
+      const token = modelToolMap.countTokens({
+        model: OpenAiChatEnum.GPT3516k,
+        messages: [{ obj: 'System', value: item.q }]
+      });
+      if (token > modeMaxToken[TrainingModeEnum.qa]) {
+        return;
+      }
+    }
 
-    if (mode === TrainingModeEnum.qa && token > modeMaxToken[TrainingModeEnum.qa]) {
-      console.log('q is too long');
-    } else if (!set.has(text)) {
+    if (!set.has(text)) {
       filterData.push(item);
       set.add(text);
     }

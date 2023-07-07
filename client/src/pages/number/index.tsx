@@ -13,26 +13,22 @@ import { useQuery } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import { useSelectFile } from '@/hooks/useSelectFile';
 import { compressImg } from '@/utils/file';
-import { useCopyData } from '@/utils/tools';
+import { getErrText, useCopyData } from '@/utils/tools';
+import { authOpenAiKey } from '@/utils/plugin/openai';
+
 import Loading from '@/components/Loading';
 import Avatar from '@/components/Avatar';
 import MyIcon from '@/components/Icon';
 import Tabs from '@/components/Tabs';
+import BillTable from './components/BillTable';
 
 const PayRecordTable = dynamic(() => import('./components/PayRecordTable'), {
-  loading: () => <Loading fixed={false} />,
-  ssr: false
-});
-const BilTable = dynamic(() => import('./components/BillTable'), {
-  loading: () => <Loading fixed={false} />,
   ssr: false
 });
 const PromotionTable = dynamic(() => import('./components/PromotionTable'), {
-  loading: () => <Loading fixed={false} />,
   ssr: false
 });
 const InformTable = dynamic(() => import('./components/InformTable'), {
-  loading: () => <Loading fixed={false} />,
   ssr: false
 });
 const PayModal = dynamic(() => import('./components/PayModal'), {
@@ -53,12 +49,11 @@ enum TableEnum {
 
 const NumberSetting = ({ tableType }: { tableType: `${TableEnum}` }) => {
   const tableList = useRef([
-    { label: '账单', id: TableEnum.bill, Component: <BilTable /> },
+    { label: '账单', id: TableEnum.bill, Component: <BillTable /> },
     { label: '充值', id: TableEnum.pay, Component: <PayRecordTable /> },
     { label: '佣金', id: TableEnum.promotion, Component: <PromotionTable /> },
     { label: '通知', id: TableEnum.inform, Component: <InformTable /> }
   ]);
-  const [currentTab, setCurrentTab] = useState(tableType);
 
   const router = useRouter();
   const { copyData } = useCopyData();
@@ -88,6 +83,14 @@ const NumberSetting = ({ tableType }: { tableType: `${TableEnum}` }) => {
     async (data: UserUpdateParams) => {
       setLoading(true);
       try {
+        if (data.openaiKey) {
+          const text = await authOpenAiKey(data.openaiKey);
+          text &&
+            toast({
+              title: text,
+              status: 'warning'
+            });
+        }
         await putUserInfo({
           openaiKey: data.openaiKey,
           avatar: data.avatar
@@ -98,10 +101,15 @@ const NumberSetting = ({ tableType }: { tableType: `${TableEnum}` }) => {
         });
         reset(data);
         toast({
-          title: '更新成功',
+          title: '更新数据成功',
           status: 'success'
         });
-      } catch (error) {}
+      } catch (error) {
+        toast({
+          title: getErrText(error),
+          status: 'error'
+        });
+      }
       setLoading(false);
     },
     [reset, setLoading, toast, updateUserInfo]
@@ -112,14 +120,15 @@ const NumberSetting = ({ tableType }: { tableType: `${TableEnum}` }) => {
       const file = e[0];
       if (!file) return;
       try {
-        const base64 = await compressImg({
+        const src = await compressImg({
           file,
           maxW: 100,
           maxH: 100
         });
+
         onclickSave({
           ...userInfo,
-          avatar: base64
+          avatar: src
         });
       } catch (err: any) {
         toast({
@@ -192,7 +201,7 @@ const NumberSetting = ({ tableType }: { tableType: `${TableEnum}` }) => {
             <Box flex={'0 0 85px'}>openaiKey:</Box>
             <Input
               {...register(`openaiKey`)}
-              maxW={'300px'}
+              maxW={'350px'}
               placeholder={'openai账号。回车或失去焦点保存'}
               size={'sm'}
               onBlur={handleSubmit(onclickSave)}
@@ -211,7 +220,8 @@ const NumberSetting = ({ tableType }: { tableType: `${TableEnum}` }) => {
           {[
             { label: '佣金比例', value: `${userInfo?.promotion.rate || 15}%` },
             { label: '已注册用户数', value: `${invitedAmount}人` },
-            { label: '累计佣金', value: `￥${historyAmount}` }
+            { label: '累计佣金', value: `￥${historyAmount}` },
+            { label: '可用佣金', value: `￥${residueAmount}` }
           ].map((item) => (
             <Flex key={item.label} alignItems={'center'} mt={4} justifyContent={'space-between'}>
               <Box w={'120px'}>{item.label}</Box>
@@ -245,15 +255,16 @@ const NumberSetting = ({ tableType }: { tableType: `${TableEnum}` }) => {
 
       <Card mt={4} px={[3, 6]} py={4}>
         <Tabs
+          m={'auto'}
           w={'200px'}
           list={tableList.current}
-          activeId={currentTab}
+          activeId={tableType}
           size={'sm'}
-          onChange={(id: any) => setCurrentTab(id)}
+          onChange={(id: any) => router.replace(`/number?type=${id}`)}
         />
-        <Box>
+        <Box minH={'300px'}>
           {(() => {
-            const item = tableList.current.find((item) => item.id === currentTab);
+            const item = tableList.current.find((item) => item.id === tableType);
 
             return item ? item.Component : null;
           })()}

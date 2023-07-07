@@ -15,14 +15,13 @@ export async function connectToDatabase(): Promise<void> {
   global.qaQueueLen = 0;
   global.vectorQueueLen = 0;
   global.systemEnv = {
-    openAIKeys: process.env.OPENAIKEY || '',
-    openAITrainingKeys: process.env.OPENAI_TRAINING_KEY || '',
-    gpt4Key: process.env.GPT4KEY || '',
     vectorMaxProcess: 10,
     qaMaxProcess: 10,
     pgIvfflatProbe: 10,
     sensitiveCheck: false
   };
+  global.sendInformQueue = [];
+  global.sendInformQueueLen = 0;
   // proxy obj
   if (process.env.AXIOS_PROXY_HOST && process.env.AXIOS_PROXY_PORT) {
     global.httpsAgent = tunnel.httpsOverHttp({
@@ -39,9 +38,9 @@ export async function connectToDatabase(): Promise<void> {
     global.mongodb = await mongoose.connect(process.env.MONGODB_URI as string, {
       bufferCommands: true,
       dbName: process.env.MONGODB_NAME,
-      maxPoolSize: 5,
-      minPoolSize: 1,
-      maxConnecting: 5
+      maxConnecting: Number(process.env.DB_MAX_LINK || 5),
+      maxPoolSize: Number(process.env.DB_MAX_LINK || 5),
+      minPoolSize: 2
     });
     console.log('mongo connected');
   } catch (error) {
@@ -68,3 +67,4 @@ export * from './models/shareChat';
 export * from './models/kb';
 export * from './models/inform';
 export * from './models/system';
+export * from './models/image';

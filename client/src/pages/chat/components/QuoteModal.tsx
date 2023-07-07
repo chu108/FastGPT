@@ -44,6 +44,32 @@ const QuoteModal = ({
   } = useQuery(['getHistoryQuote'], () => getHistoryQuote({ historyId, chatId }));
 
   /**
+   * update kbData, update mongo status and reload quotes
+   */
+  const updateQuoteStatus = useCallback(
+    async (quoteId: string, sourceText: string) => {
+      setIsLoading(true);
+      try {
+        await updateHistoryQuote({
+          chatId,
+          historyId,
+          quoteId,
+          sourceText
+        });
+        // reload quote
+        refetch();
+      } catch (err) {
+        toast({
+          status: 'warning',
+          title: getErrText(err)
+        });
+      }
+      setIsLoading(false);
+    },
+    [chatId, historyId, refetch, setIsLoading, toast]
+  );
+
+  /**
    * click edit, get new kbDataItem
    */
   const onclickEdit = useCallback(
@@ -53,6 +79,7 @@ const QuoteModal = ({
         const data = (await getKbDataItemById(item.id)) as QuoteItemType;
 
         if (!data) {
+          updateQuoteStatus(item.id, '已删除');
           throw new Error('该数据已被删除');
         }
 
@@ -69,32 +96,7 @@ const QuoteModal = ({
       }
       setIsLoading(false);
     },
-    [setIsLoading, toast]
-  );
-
-  /**
-   * update kbData, update mongo status and reload quotes
-   */
-  const updateQuoteStatus = useCallback(
-    async (quoteId: string) => {
-      setIsLoading(true);
-      try {
-        await updateHistoryQuote({
-          chatId,
-          historyId,
-          quoteId
-        });
-        // reload quote
-        refetch();
-      } catch (err) {
-        toast({
-          status: 'warning',
-          title: getErrText(err)
-        });
-      }
-      setIsLoading(false);
-    },
-    [chatId, historyId, refetch, setIsLoading, toast]
+    [setIsLoading, toast, updateQuoteStatus]
   );
 
   return (
@@ -163,7 +165,8 @@ const QuoteModal = ({
       {editDataItem && (
         <InputDataModal
           onClose={() => setEditDataItem(undefined)}
-          onSuccess={() => updateQuoteStatus(editDataItem.dataId)}
+          onSuccess={() => updateQuoteStatus(editDataItem.dataId, '手动修改')}
+          onDelete={() => updateQuoteStatus(editDataItem.dataId, '已删除')}
           kbId=""
           defaultValues={editDataItem}
         />

@@ -2,10 +2,15 @@ import { GET, POST, PUT, DELETE } from '../request';
 import type { KbItemType } from '@/types/plugin';
 import { RequestPaging } from '@/types/index';
 import { TrainingModeEnum } from '@/constants/plugin';
+import { type QuoteItemType } from '@/pages/api/openapi/kb/appKbSearch';
 import {
   Props as PushDataProps,
   Response as PushDateResponse
 } from '@/pages/api/openapi/kb/pushData';
+import {
+  Props as SearchTestProps,
+  Response as SearchTestResponse
+} from '@/pages/api/openapi/kb/searchTest';
 
 export type KbUpdateParams = {
   id: string;
@@ -37,7 +42,7 @@ export const getKbDataList = (data: GetKbDataListProps) =>
  * 获取导出数据（不分页）
  */
 export const getExportDataList = (kbId: string) =>
-  GET<[string, string][]>(
+  GET<[string, string, string][]>(
     `/plugins/kb/data/exportModelData`,
     { kbId },
     {
@@ -55,7 +60,7 @@ export const getTrainingData = (data: { kbId: string; init: boolean }) =>
   }>(`/plugins/kb/data/getTrainingData`, data);
 
 export const getKbDataItemById = (dataId: string) =>
-  GET(`/plugins/kb/data/getDataById`, { dataId });
+  GET<QuoteItemType>(`/plugins/kb/data/getDataById`, { dataId });
 
 /**
  * 直接push数据
@@ -83,3 +88,6 @@ export const postSplitData = (data: {
   prompt: string;
   mode: `${TrainingModeEnum}`;
 }) => POST(`/openapi/text/pushData`, data);
+
+export const searchText = (data: SearchTestProps) =>
+  POST<SearchTestResponse>(`/openapi/kb/searchTest`, data);

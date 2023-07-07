@@ -13,8 +13,9 @@ const ModelDetail = dynamic(() => import('./components/detail/index'), {
   ssr: false
 });
 
-const Model = ({ modelId }: { modelId: string }) => {
+const Model = () => {
   const router = useRouter();
+  const { modelId = '' } = router.query as { modelId: string };
   const { isPc } = useGlobalStore();
   const { lastModelId } = useUserStore();
 
@@ -34,16 +35,10 @@ const Model = ({ modelId }: { modelId: string }) => {
         </SideBar>
       )}
       <Box flex={1} h={'100%'} position={'relative'}>
-        {modelId && <ModelDetail modelId={modelId} isPc={isPc} />}
+        {modelId && <ModelDetail modelId={modelId} />}
       </Box>
     </Flex>
   );
 };
 
 export default Model;
-
-Model.getInitialProps = ({ query, req }: any) => {
-  return {
-    modelId: query?.modelId || ''
-  };
-};

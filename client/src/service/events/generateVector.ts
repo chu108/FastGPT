@@ -19,34 +19,10 @@ export async function generateVector(): Promise<any> {
   let userId = '';
 
   try {
-    const match = {
-      mode: TrainingModeEnum.index,
-      lockTime: { $lte: new Date(Date.now() - 2 * 60 * 1000) }
-    };
-    // random get task
-    const agree = await TrainingData.aggregate([
-      {
-        $match: match
-      },
-      { $sample: { size: 1 } },
-      {
-        $project: {
-          _id: 1
-        }
-      }
-    ]);
-
-    // no task
-    if (agree.length === 0) {
-      reduceQueue();
-      global.vectorQueueLen <= 0 && console.log(`没有需要【索引】的数据, ${global.vectorQueueLen}`);
-      return;
-    }
-
     const data = await TrainingData.findOneAndUpdate(
       {
-        _id: agree[0]._id,
-        ...match
+        mode: TrainingModeEnum.index,
+        lockTime: { $lte: new Date(Date.now() - 2 * 60 * 1000) }
       },
       {
         lockTime: new Date()
@@ -63,7 +39,8 @@ export async function generateVector(): Promise<any> {
     // task preemption
     if (!data) {
       reduceQueue();
-      return generateVector();
+      global.vectorQueueLen <= 0 && console.log(`没有需要【索引】的数据, ${global.vectorQueueLen}`);
+      return;
     }
 
     trainingId = data._id;
@@ -81,7 +58,6 @@ export async function generateVector(): Promise<any> {
     const vectors = await openaiEmbedding({
       input: dataItems.map((item) => item.q),
       userId,
-      type: 'training',
       mustPay: true
     });
 
@@ -128,7 +104,8 @@ export async function generateVector(): Promise<any> {
       sendInform({
         type: 'system',
         title: '索引生成任务中止',
-        content: '由于账号余额不足，索引生成任务中止，重新充值后将会继续。',
+        content:
+          '由于账号余额不足，索引生成任务中止，重新充值后将会继续。暂停的任务将在 7 天后被删除。',
         userId
       });
       console.log('余额不足，暂停向量生成任务');

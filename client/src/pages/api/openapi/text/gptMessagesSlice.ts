@@ -2,17 +2,18 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { jsonRes } from '@/service/response';
 import { authUser } from '@/service/utils/auth';
-import type { ChatItemSimpleType } from '@/types/chat';
+import type { ChatItemType } from '@/types/chat';
 import { countOpenAIToken } from '@/utils/plugin/openai';
+import { OpenAiChatEnum } from '@/constants/model';
 
-type ModelType = 'gpt-3.5-turbo' | 'gpt-4' | 'gpt-4-32k';
+type ModelType = `${OpenAiChatEnum}`;
 
 type Props = {
-  messages: ChatItemSimpleType[];
+  messages: ChatItemType[];
   model: ModelType;
   maxLen: number;
 };
-type Response = ChatItemSimpleType[];
+type Response = ChatItemType[];
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -44,11 +45,11 @@ export function gpt_chatItemTokenSlice({
   model,
   maxToken
 }: {
-  messages: ChatItemSimpleType[];
+  messages: ChatItemType[];
   model: ModelType;
   maxToken: number;
 }) {
-  let result: ChatItemSimpleType[] = [];
+  let result: ChatItemType[] = [];
 
   for (let i = 0; i < messages.length; i++) {
     const msgs = [...result, messages[i]];

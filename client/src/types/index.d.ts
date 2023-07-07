@@ -21,11 +21,10 @@ declare global {
   var QRCode: any;
   var qaQueueLen: number;
   var vectorQueueLen: number;
-  var OpenAiEncMap: Record<string, Tiktoken>;
+  var OpenAiEncMap: Tiktoken;
+  var sendInformQueue: (() => Promise<void>)[];
+  var sendInformQueueLen: number;
   var systemEnv: {
-    openAIKeys: string;
-    openAITrainingKeys: string;
-    gpt4Key: string;
     vectorMaxProcess: number;
     qaMaxProcess: number;
     pgIvfflatProbe: number;

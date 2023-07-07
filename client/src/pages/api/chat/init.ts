@@ -6,7 +6,6 @@ import { authUser } from '@/service/utils/auth';
 import { ChatItemType } from '@/types/chat';
 import { authModel } from '@/service/utils/auth';
 import mongoose from 'mongoose';
-import { ModelStatusEnum } from '@/constants/model';
 import type { ModelSchema } from '@/types/mongoSchema';
 
 /* 初始化我的聊天框，需要身份验证 */
@@ -21,32 +20,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     await connectToDatabase();
 
-    let model: ModelSchema;
-
     // 没有 modelId 时，直接获取用户的第一个id
-    if (!modelId) {
-      const myModel = await Model.findOne({ userId });
-      if (!myModel) {
-        const { _id } = await Model.create({
-          name: '应用1',
-          userId,
-          status: ModelStatusEnum.running
-        });
-        model = (await Model.findById(_id)) as ModelSchema;
+    const model = await (async () => {
+      if (!modelId) {
+        const myModel = await Model.findOne({ userId });
+        if (!myModel) {
+          const { _id } = await Model.create({
+            name: '应用1',
+            userId
+          });
+          return (await Model.findById(_id)) as ModelSchema;
+        } else {
+          return myModel;
+        }
       } else {
-        model = myModel;
+        // 校验使用权限
+        const authRes = await authModel({
+          modelId,
+          userId,
+          authUser: false,
+          authOwner: false
+        });
+        return authRes.model;
       }
-      modelId = model._id;
-    } else {
-      // 校验使用权限
-      const authRes = await authModel({
-        modelId,
-        userId,
-        authUser: false,
-        authOwner: false
-      });
-      model = authRes.model;
-    }
+    })();
+
+    modelId = modelId || model._id;
 
     // 历史记录
     let history: ChatItemType[] = [];
@@ -88,6 +87,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ]);
     }
 
+    const isOwner = String(model.userId) === userId;
+
     jsonRes<InitChatResponse>(res, {
       data: {
         chatId: chatId || '',
@@ -95,10 +96,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         model: {
           name: model.name,
           avatar: model.avatar,
-          intro: model.share.intro,
-          canUse: model.share.isShare || String(model.userId) === userId
+          intro: model.intro,
+          canUse: model.share.isShare || isOwner
         },
         chatModel: model.chat.chatModel,
+        systemPrompt: isOwner ? model.chat.systemPrompt : '',
+        limitPrompt: isOwner ? model.chat.limitPrompt : '',
         history
       }
     });

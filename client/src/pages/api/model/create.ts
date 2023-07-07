@@ -3,7 +3,6 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { jsonRes } from '@/service/response';
 import { connectToDatabase } from '@/service/mongo';
 import { authUser } from '@/service/utils/auth';
-import { ModelStatusEnum } from '@/constants/model';
 import { Model } from '@/service/models/model';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<any>) {
@@ -25,15 +24,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const authCount = await Model.countDocuments({
       userId
     });
-    if (authCount >= 30) {
-      throw new Error('上限 30 个应用');
+    if (authCount >= 50) {
+      throw new Error('上限 50 个应用');
     }
 
     // 创建模型
     const response = await Model.create({
       name,
-      userId,
-      status: ModelStatusEnum.running
+      userId
     });
 
     jsonRes(res, {

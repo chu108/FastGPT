@@ -7,8 +7,9 @@ import SideBar from '@/components/SideBar';
 import KbList from './components/KbList';
 import KbDetail from './components/Detail';
 
-const Kb = ({ kbId }: { kbId: string }) => {
+const Kb = () => {
   const router = useRouter();
+  const { kbId = '' } = router.query as { kbId: string };
   const { isPc } = useGlobalStore();
   const { lastKbId } = useUserStore();
 
@@ -27,17 +28,13 @@ const Kb = ({ kbId }: { kbId: string }) => {
           <KbList kbId={kbId} />
         </SideBar>
       )}
-      <Box flex={'1 0 0'} w={0} h={'100%'} position={'relative'}>
-        {kbId && <KbDetail kbId={kbId} />}
-      </Box>
+      {!!kbId && (
+        <Box flex={'1 0 0'} w={0} h={'100%'} position={'relative'}>
+          <KbDetail kbId={kbId} />
+        </Box>
+      )}
     </Flex>
   );
 };
 
 export default Kb;
-
-Kb.getInitialProps = ({ query, req }: any) => {
-  return {
-    kbId: query?.kbId || ''
-  };
-};
