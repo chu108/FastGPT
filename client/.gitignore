@@ -28,4 +28,7 @@ next-env.d.ts
 platform.json
 testApi/
 local/
+.idea/
+.github/
 .husky/
+.vscode/

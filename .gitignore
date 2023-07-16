@@ -30,3 +30,6 @@ testApi/
 local/
 dist/
 .idea/
+.github/
+.husky/
+.vscode/
