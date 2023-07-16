@@ -29,3 +29,4 @@ platform.json
 testApi/
 local/
 dist/
+.idea/
